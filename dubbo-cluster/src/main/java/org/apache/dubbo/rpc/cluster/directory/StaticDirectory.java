@@ -30,6 +30,7 @@ import java.util.List;
 
 /**
  * StaticDirectory
+ * 非注册中心字典 不可变的
  */
 public class StaticDirectory<T> extends AbstractDirectory<T> {
     private static final Logger logger = LoggerFactory.getLogger(StaticDirectory.class);
@@ -96,7 +97,9 @@ public class StaticDirectory<T> extends AbstractDirectory<T> {
         routerChain.setInvokers(invokers);
         this.setRouterChain(routerChain);
     }
-
+    /**
+     *根据消费url选取可用的url
+     * */
     @Override
     protected List<Invoker<T>> doList(Invocation invocation) throws RpcException {
         List<Invoker<T>> finalInvokers = invokers;

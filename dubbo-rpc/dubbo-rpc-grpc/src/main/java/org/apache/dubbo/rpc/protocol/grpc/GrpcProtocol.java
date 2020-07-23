@@ -72,11 +72,13 @@ public class GrpcProtocol extends AbstractProxyProtocol {
         GrpcRemotingServer grpcServer = (GrpcRemotingServer) protocolServer.getRemotingServer();
 
         ServiceRepository serviceRepository = ApplicationModel.getServiceRepository();
+
         ProviderModel providerModel = serviceRepository.lookupExportedService(url.getServiceKey());
         if (providerModel == null) {
             throw new IllegalStateException("Service " + url.getServiceKey() + "should have already been stored in service repository, " +
                     "but failed to find it.");
         }
+
         Object originalImpl = providerModel.getServiceInstance();
 
         Class<?> implClass = originalImpl.getClass();

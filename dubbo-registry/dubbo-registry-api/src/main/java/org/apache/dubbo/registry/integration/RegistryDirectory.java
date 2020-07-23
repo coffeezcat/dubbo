@@ -87,25 +87,31 @@ import static org.apache.dubbo.rpc.cluster.Constants.ROUTER_KEY;
 
 /**
  * RegistryDirectory
+ *注册中心字典 可变化的
  */
 public class RegistryDirectory<T> extends AbstractDirectory<T> implements NotifyListener {
 
     private static final Logger logger = LoggerFactory.getLogger(RegistryDirectory.class);
 
+    //获取对应的集群和集群的invoker
     private static final Cluster CLUSTER = ExtensionLoader.getExtensionLoader(Cluster.class).getAdaptiveExtension();
-
+    //路由工厂
     private static final RouterFactory ROUTER_FACTORY = ExtensionLoader.getExtensionLoader(RouterFactory.class)
             .getAdaptiveExtension();
-
+    //服务key
     private final String serviceKey; // Initialization at construction time, assertion not null
+
     private final Class<T> serviceType; // Initialization at construction time, assertion not null
     private final Map<String, String> queryMap; // Initialization at construction time, assertion not null
     private final URL directoryUrl; // Initialization at construction time, assertion not null, and always assign non null value
     private final boolean multiGroup;
+    //协议
     private Protocol protocol; // Initialization at the time of injection, the assertion is not null
+    //注册中心
     private Registry registry; // Initialization at the time of injection, the assertion is not null
     private volatile boolean forbidden = false;
 
+    //服务的最后url
     private volatile URL overrideDirectoryUrl; // Initialization at construction time, assertion not null, and always assign non null value
 
     private volatile URL registeredConsumerUrl;
@@ -128,7 +134,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
     private static final ConsumerConfigurationListener CONSUMER_CONFIGURATION_LISTENER = new ConsumerConfigurationListener();
     private ReferenceConfigurationListener serviceConfigurationListener;
 
-
+    //此处的url是registryUrl
     public RegistryDirectory(Class<T> serviceType, URL url) {
         super(url);
         if (serviceType == null) {
@@ -145,6 +151,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
         this.multiGroup = group != null && (ANY_VALUE.equals(group) || group.contains(","));
     }
 
+    //将注册中心地址改为消费者地址
     private URL turnRegistryUrlToConsumerUrl(URL url) {
         // save any parameter in registry that will be useful to the new url.
         String isDefault = url.getParameter(PREFERRED_KEY);
@@ -166,11 +173,12 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
     public void setRegistry(Registry registry) {
         this.registry = registry;
     }
-
+    //订阅地址
     public void subscribe(URL url) {
         setConsumerUrl(url);
         CONSUMER_CONFIGURATION_LISTENER.addNotifyListener(this);
         serviceConfigurationListener = new ReferenceConfigurationListener(this, url);
+        //1url  2listener
         registry.subscribe(url, this);
     }
 
@@ -207,6 +215,9 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
         }
     }
 
+    /**
+     *
+     * */
     @Override
     public synchronized void notify(List<URL> urls) {
         Map<String, List<URL>> categoryUrls = urls.stream()
@@ -215,10 +226,14 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
                 .filter(this::isNotCompatibleFor26x)
                 .collect(Collectors.groupingBy(url -> {
                     if (UrlUtils.isConfigurator(url)) {
+                        //重写配置url
+                        //override://0.0.0.0/com.wuys.frame.api.service.IUserService?category=configurators&dynamic=false&enabled=true&timeout=10000
                         return CONFIGURATORS_CATEGORY;
                     } else if (UrlUtils.isRoute(url)) {
+                        //routers://
                         return ROUTERS_CATEGORY;
                     } else if (UrlUtils.isProvider(url)) {
+                        //provider:
                         return PROVIDERS_CATEGORY;
                     }
                     return "";
@@ -234,6 +249,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
         List<URL> providerURLs = categoryUrls.getOrDefault(PROVIDERS_CATEGORY, Collections.emptyList());
         /**
          * 3.x added for extend URL address
+         * 兼容  无
          */
         ExtensionLoader<AddressListener> addressListenerExtensionLoader = ExtensionLoader.getExtensionLoader(AddressListener.class);
         List<AddressListener> supportedListeners = addressListenerExtensionLoader.getActivateExtension(getUrl(), (String[]) null);
@@ -242,12 +258,15 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
                 providerURLs = addressListener.notify(providerURLs, getUrl(),this);
             }
         }
+        //更新url
         refreshOverrideAndInvoker(providerURLs);
     }
-
+    //更新invoker url
     private void refreshOverrideAndInvoker(List<URL> urls) {
         // mock zookeeper://xxx?mock=return null
+        //重写配置
         overrideDirectoryUrl();
+        //刷新invoker
         refreshInvoker(urls);
     }
 
@@ -267,6 +286,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
     private void refreshInvoker(List<URL> invokerUrls) {
         Assert.notNull(invokerUrls, "invokerUrls should not be null");
 
+        //只有一个且为empty则不允许访问
         if (invokerUrls.size() == 1
                 && invokerUrls.get(0) != null
                 && EMPTY_PROTOCOL.equals(invokerUrls.get(0).getProtocol())) {
@@ -320,6 +340,11 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
         }
     }
 
+    /**
+     * 服务分组
+     * 1.按组分provider
+     * 2.然后将每个分组包装成一个invoker
+     * */
     private List<Invoker<T>> toMergeInvokerList(List<Invoker<T>> invokers) {
         List<Invoker<T>> mergedInvokers = new ArrayList<>();
         Map<String, List<Invoker<T>>> groupMap = new HashMap<>();
@@ -669,8 +694,10 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
     private void overrideDirectoryUrl() {
         // merge override parameters
         this.overrideDirectoryUrl = directoryUrl;
+        //刷新配置
         List<Configurator> localConfigurators = this.configurators; // local reference
         doOverrideUrl(localConfigurators);
+
         List<Configurator> localAppDynamicConfigurators = CONSUMER_CONFIGURATION_LISTENER.getConfigurators(); // local reference
         doOverrideUrl(localAppDynamicConfigurators);
         if (serviceConfigurationListener != null) {

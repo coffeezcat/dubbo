@@ -38,6 +38,7 @@ import static org.apache.dubbo.common.constants.CommonConstants.TIMEOUT_KEY;
 
 /**
  * NettyChannel maintains the cache of channel.
+ * dubbo channel->netty channel的转换
  */
 final class NettyChannel extends AbstractChannel {
 
